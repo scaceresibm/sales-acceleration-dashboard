@@ -138,10 +138,6 @@
   </div>
   <div class="kpi-grid" id="kpiGrid"></div>
   <div class="section-card">
-    <h2>Initiatives by SA Rep</h2>
-    <div class="chart-wrap" id="chartRep"></div>
-  </div>
-  <div class="section-card">
     <h2>Total Initiatives by SA Rep</h2>
     <div class="chart-wrap" id="chartRepTotal"></div>
   </div>
@@ -1470,48 +1466,6 @@ function makeGrid(ticks, scaleX, padT, H, padB, legendH) {
   }).join("");
 }
 
-function renderChartRep() {
-  const data = filteredData();
-  const reps = [...new Set(data.map(r => r[C.rep]).filter(Boolean))].sort();
-  if (!reps.length) { document.getElementById("chartRep").innerHTML = `<p class="no-data">No data for current filters.</p>`; return; }
-  const statuses = ["Completed","Execution","Running","Planned","Stuck","Post Campaña"];
-  const colors   = { Completed:"#22c55e",Execution:"#3b82d4",Planned:"#9ca3af",Running:"#f59e0b",Stuck:"#ef4444","Post Campaña":"#7c5cd8" };
-  const activeStatuses = statuses.filter(s => data.some(r => r[C.status] === s));
-  const maxLabelLen = Math.max(...reps.map(r => r.length));
-  const padL = Math.min(220, Math.max(130, maxLabelLen * 7));
-  const padR = 50, padT = 20, padB = 34;
-  const barH = 20, groupH = barH * activeStatuses.length + 10;
-  const maxVal = Math.max(1, ...reps.flatMap(rep => activeStatuses.map(s => data.filter(r => r[C.rep]===rep && r[C.status]===s).length)));
-  const W = 700, H = padT + reps.length * groupH + padB;
-  const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
-  const ticks = niceTicks(maxVal);
-  const legendRows = Math.ceil(activeStatuses.length / 3);
-  const legendH = legendRows * 18 + 10;
-  let grid = makeGrid(ticks, scaleX, padT, H, padB, 0);
-  // baseline
-  grid += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB + 4}" stroke="#d1d5db" stroke-width="1"/>`;
-  let bars = "", labels = "";
-  reps.forEach((rep, ri) => {
-    const y0 = padT + ri * groupH;
-    // alternating row stripe
-    if (ri % 2 === 1) bars += `<rect x="${padL}" y="${y0}" width="${W - padL - padR}" height="${groupH}" fill="#f7f8fa" opacity="0.5"/>`;
-    labels += `<text x="${padL - 8}" y="${y0 + groupH/2 + 4}" text-anchor="end" font-size="11" fill="#1f2328">${rep}</text>`;
-    activeStatuses.forEach((s, si) => {
-      const count = data.filter(r => r[C.rep]===rep && r[C.status]===s).length;
-      const barY = y0 + si * barH + 4;
-      const barW = Math.max(0, scaleX(count) - padL);
-      bars += `<rect x="${padL}" y="${barY}" width="${barW}" height="${barH-4}" fill="${colors[s]||'#ccc'}" rx="2" opacity="0.9"/>`;
-      if (count > 0) bars += `<text x="${padL + barW + 4}" y="${barY + (barH-4)/2 + 4}" font-size="11" fill="#57606a">${count}</text>`;
-    });
-  });
-  const legend = activeStatuses.map((s,i) =>
-    `<rect x="${padL + (i%3)*160}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
-     <text x="${padL + (i%3)*160 + 16}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18 + 10}" font-size="11" fill="#57606a">${s}</text>`
-  ).join("");
-  document.getElementById("chartRep").innerHTML =
-    `<svg viewBox="0 0 ${W} ${H + legendH}" style="width:100%;max-width:${W}px">${grid}${bars}${labels}${legend}</svg>`;
-}
-
 function renderChartRepTotal() {
   const data = filteredData();
   const reps = [...new Set(data.map(r => r[C.rep]).filter(Boolean))].sort();
@@ -1733,7 +1687,7 @@ function renderTable() {
 }
 
 function renderAll() {
-  renderKPIs(); renderChartRep(); renderChartRepTotal(); renderChartType(); renderChartQuarter(); renderEngagement(); renderTable();
+  renderKPIs(); renderChartRepTotal(); renderChartType(); renderChartQuarter(); renderEngagement(); renderTable();
 }
 
 const filterMap = {
