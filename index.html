@@ -1449,6 +1449,27 @@ function statusBadge(s) {
   return `<span class="badge badge-${cls}">${s||"—"}</span>`;
 }
 
+// Returns an array of ~5 round tick values spanning 0..maxVal
+function niceTicks(maxVal) {
+  const rawStep = maxVal / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+  const step = [1,2,5,10].map(f => f * mag).find(s => s >= rawStep) || mag;
+  const ticks = [];
+  for (let v = 0; v <= maxVal + step * 0.5; v += step) ticks.push(v);
+  return ticks;
+}
+
+// Renders gridlines + x-axis tick labels for horizontal bar charts.
+// Returns an SVG string with <line> gridlines and <text> tick labels.
+function makeGrid(ticks, scaleX, padT, H, padB, legendH) {
+  const chartH = H - padB + legendH;
+  return ticks.map(t => {
+    const x = Math.round(scaleX(t));
+    return `<line x1="${x}" y1="${padT}" x2="${x}" y2="${H - padB + 4}" stroke="#e5e7eb" stroke-width="1"/>
+            <text x="${x}" y="${H - padB + 16}" text-anchor="middle" font-size="10" fill="#9ca3af">${t}</text>`;
+  }).join("");
+}
+
 function renderChartRep() {
   const data = filteredData();
   const reps = [...new Set(data.map(r => r[C.rep]).filter(Boolean))].sort();
@@ -1456,17 +1477,24 @@ function renderChartRep() {
   const statuses = ["Completed","Execution","Running","Planned","Stuck","Post Campaña"];
   const colors   = { Completed:"#22c55e",Execution:"#3b82d4",Planned:"#9ca3af",Running:"#f59e0b",Stuck:"#ef4444","Post Campaña":"#7c5cd8" };
   const activeStatuses = statuses.filter(s => data.some(r => r[C.status] === s));
-  // Calculate max label length for left padding
   const maxLabelLen = Math.max(...reps.map(r => r.length));
   const padL = Math.min(220, Math.max(130, maxLabelLen * 7));
-  const padR = 50, padT = 20, padB = 50;
+  const padR = 50, padT = 20, padB = 34;
   const barH = 20, groupH = barH * activeStatuses.length + 10;
   const maxVal = Math.max(1, ...reps.flatMap(rep => activeStatuses.map(s => data.filter(r => r[C.rep]===rep && r[C.status]===s).length)));
   const W = 700, H = padT + reps.length * groupH + padB;
   const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
+  const ticks = niceTicks(maxVal);
+  const legendRows = Math.ceil(activeStatuses.length / 3);
+  const legendH = legendRows * 18 + 10;
+  let grid = makeGrid(ticks, scaleX, padT, H, padB, 0);
+  // baseline
+  grid += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB + 4}" stroke="#d1d5db" stroke-width="1"/>`;
   let bars = "", labels = "";
   reps.forEach((rep, ri) => {
     const y0 = padT + ri * groupH;
+    // alternating row stripe
+    if (ri % 2 === 1) bars += `<rect x="${padL}" y="${y0}" width="${W - padL - padR}" height="${groupH}" fill="#f7f8fa" opacity="0.5"/>`;
     labels += `<text x="${padL - 8}" y="${y0 + groupH/2 + 4}" text-anchor="end" font-size="11" fill="#1f2328">${rep}</text>`;
     activeStatuses.forEach((s, si) => {
       const count = data.filter(r => r[C.rep]===rep && r[C.status]===s).length;
@@ -1477,11 +1505,11 @@ function renderChartRep() {
     });
   });
   const legend = activeStatuses.map((s,i) =>
-    `<rect x="${padL + (i%3)*160}" y="${H - 28 + Math.floor(i/3)*14}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
-     <text x="${padL + (i%3)*160 + 16}" y="${H - 18 + Math.floor(i/3)*14}" font-size="11" fill="#57606a">${s}</text>`
+    `<rect x="${padL + (i%3)*160}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
+     <text x="${padL + (i%3)*160 + 16}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18 + 10}" font-size="11" fill="#57606a">${s}</text>`
   ).join("");
   document.getElementById("chartRep").innerHTML =
-    `<svg viewBox="0 0 ${W} ${H + 20}" style="width:100%;max-width:${W}px">${bars}${labels}${legend}</svg>`;
+    `<svg viewBox="0 0 ${W} ${H + legendH}" style="width:100%;max-width:${W}px">${grid}${bars}${labels}${legend}</svg>`;
 }
 
 function renderChartRepTotal() {
@@ -1515,13 +1543,19 @@ function renderChartType() {
   const colors   = { Completed:"#22c55e",Execution:"#3b82d4",Planned:"#9ca3af",Running:"#f59e0b",Stuck:"#ef4444","Post Campaña":"#7c5cd8" };
   if (!types.length) { document.getElementById("chartType").innerHTML = `<p class="no-data">No data for current filters.</p>`; return; }
   const activeStatuses = statuses.filter(s => data.some(r => r[C.status] === s));
-  const barH = 20, groupH = barH * activeStatuses.length + 10, padL = 240, padR = 50, padT = 20, padB = 40;
+  const barH = 20, groupH = barH * activeStatuses.length + 10, padL = 240, padR = 50, padT = 20, padB = 34;
   const maxVal = Math.max(1, ...types.flatMap(t => activeStatuses.map(s => data.filter(r => r[C.type]===t && r[C.status]===s).length)));
   const W = 700, H = padT + types.length * groupH + padB;
   const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
+  const ticks = niceTicks(maxVal);
+  const legendRows = Math.ceil(activeStatuses.length / 3);
+  const legendH = legendRows * 18 + 10;
+  let grid = makeGrid(ticks, scaleX, padT, H, padB, 0);
+  grid += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB + 4}" stroke="#d1d5db" stroke-width="1"/>`;
   let bars = "", labels = "";
   types.forEach((t, ti) => {
     const y0 = padT + ti * groupH;
+    if (ti % 2 === 1) bars += `<rect x="${padL}" y="${y0}" width="${W - padL - padR}" height="${groupH}" fill="#f7f8fa" opacity="0.5"/>`;
     labels += `<text x="${padL - 8}" y="${y0 + groupH/2 + 4}" text-anchor="end" font-size="12" fill="#1f2328">${t}</text>`;
     activeStatuses.forEach((s, si) => {
       const count = data.filter(r => r[C.type]===t && r[C.status]===s).length;
@@ -1532,11 +1566,11 @@ function renderChartType() {
     });
   });
   const legend = activeStatuses.map((s,i) =>
-    `<rect x="${padL + (i%3)*160}" y="${H - 28 + Math.floor(i/3)*14}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
-     <text x="${padL + (i%3)*160 + 16}" y="${H - 18 + Math.floor(i/3)*14}" font-size="11" fill="#57606a">${s}</text>`
+    `<rect x="${padL + (i%3)*160}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
+     <text x="${padL + (i%3)*160 + 16}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18 + 10}" font-size="11" fill="#57606a">${s}</text>`
   ).join("");
   document.getElementById("chartType").innerHTML =
-    `<svg viewBox="0 0 ${W} ${H + 20}" style="width:100%;max-width:${W}px">${bars}${labels}${legend}</svg>`;
+    `<svg viewBox="0 0 ${W} ${H + legendH}" style="width:100%;max-width:${W}px">${grid}${bars}${labels}${legend}</svg>`;
 }
 
 function renderChartQuarter() {
@@ -1546,13 +1580,19 @@ function renderChartQuarter() {
   const colors   = { Completed:"#22c55e",Execution:"#3b82d4",Planned:"#9ca3af",Running:"#f59e0b",Stuck:"#ef4444","Post Campaña":"#7c5cd8" };
   if (!quarters.length) { document.getElementById("chartQuarter").innerHTML = `<p class="no-data">No data for current filters.</p>`; return; }
   const activeStatuses = statuses.filter(s => data.some(r => r[C.status] === s));
-  const barH = 20, groupH = barH * activeStatuses.length + 10, padL = 80, padR = 50, padT = 20, padB = 50;
+  const barH = 20, groupH = barH * activeStatuses.length + 10, padL = 80, padR = 50, padT = 20, padB = 34;
   const maxVal = Math.max(1, ...quarters.flatMap(q => activeStatuses.map(s => data.filter(r => r[C.quarter]===q && r[C.status]===s).length)));
   const W = 700, H = padT + quarters.length * groupH + padB;
   const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
+  const ticks = niceTicks(maxVal);
+  const legendRows = Math.ceil(activeStatuses.length / 3);
+  const legendH = legendRows * 18 + 10;
+  let grid = makeGrid(ticks, scaleX, padT, H, padB, 0);
+  grid += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H - padB + 4}" stroke="#d1d5db" stroke-width="1"/>`;
   let bars = "", labels = "";
   quarters.forEach((q, qi) => {
     const y0 = padT + qi * groupH;
+    if (qi % 2 === 1) bars += `<rect x="${padL}" y="${y0}" width="${W - padL - padR}" height="${groupH}" fill="#f7f8fa" opacity="0.5"/>`;
     labels += `<text x="${padL - 8}" y="${y0 + groupH/2 + 4}" text-anchor="end" font-size="12" fill="#1f2328">${q}</text>`;
     activeStatuses.forEach((s, si) => {
       const count = data.filter(r => r[C.quarter]===q && r[C.status]===s).length;
@@ -1563,11 +1603,11 @@ function renderChartQuarter() {
     });
   });
   const legend = activeStatuses.map((s,i) =>
-    `<rect x="${padL + (i%3)*160}" y="${H - 28 + Math.floor(i/3)*14}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
-     <text x="${padL + (i%3)*160 + 16}" y="${H - 18 + Math.floor(i/3)*14}" font-size="11" fill="#57606a">${s}</text>`
+    `<rect x="${padL + (i%3)*160}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
+     <text x="${padL + (i%3)*160 + 16}" y="${H + legendH - legendRows*18 + Math.floor(i/3)*18 + 10}" font-size="11" fill="#57606a">${s}</text>`
   ).join("");
   document.getElementById("chartQuarter").innerHTML =
-    `<svg viewBox="0 0 ${W} ${H + 20}" style="width:100%;max-width:${W}px">${bars}${labels}${legend}</svg>`;
+    `<svg viewBox="0 0 ${W} ${H + legendH}" style="width:100%;max-width:${W}px">${grid}${bars}${labels}${legend}</svg>`;
 }
 
 function renderEngagement() {
