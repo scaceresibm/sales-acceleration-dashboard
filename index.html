@@ -82,17 +82,17 @@
   .chart-wrap { overflow-x: auto; }
   svg text { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
   .table-scroll { overflow-x: auto; border-radius: 6px; border: 1px solid #e5e7eb; max-height: 520px; overflow-y: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 960px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; min-width: 780px; }
   thead th {
-    background: #1a2b4a; color: #fff; text-align: left; padding: 10px 12px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    background: #1a2b4a; color: #fff; text-align: left; padding: 7px 8px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
     white-space: nowrap; border-right: 1px solid rgba(255,255,255,.12);
     position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none;
   }
   thead th.sort-asc::after  { content: " ▲"; font-size: 9px; opacity: 0.8; }
   thead th.sort-desc::after { content: " ▼"; font-size: 9px; opacity: 0.8; }
   thead th:last-child { border-right: none; }
-  tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tbody td { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:hover td { background: #eff6ff !important; }
   tr.row-completed td:first-child { border-left: 4px solid #22c55e; }
@@ -106,7 +106,11 @@
   tr.row-running    { background: #fffbeb; }
   tr.row-stuck      { background: #fef2f2; }
   tr.row-postcampana{ background: #f5f3ff; }
-  .truncate { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .truncate { max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .col-xs  { width: 44px;  }
+  .col-sm  { width: 64px;  }
+  .col-med { width: 90px;  }
+  .col-name{ width: 160px; }
   a { color: #3b82d4; text-decoration: none; font-weight: 600; }
   a:hover { text-decoration: underline; }
   .no-data { color: #9ca3af; font-style: italic; padding: 24px 0; text-align: center; }
@@ -1672,6 +1676,26 @@ function renderTable() {
 
   document.getElementById("initiativeTable").innerHTML = `
     <table id="initTable">
+      <colgroup>
+        <col class="col-med"><!-- SA Rep -->
+        <col class="col-xs"> <!-- Quarter -->
+        <col class="col-xs"> <!-- Month -->
+        <col class="col-sm"> <!-- Cluster -->
+        <col class="col-sm"> <!-- Country -->
+        <col class="col-sm"> <!-- BU -->
+        <col class="col-sm"> <!-- Type -->
+        <col class="col-sm"> <!-- Status -->
+        <col class="col-name"><!-- Initiative Name -->
+        <col class="col-xs"> <!-- Contacts reached -->
+        <col class="col-xs"> <!-- Meetings -->
+        <col class="col-xs"> <!-- Calls -->
+        <col class="col-xs"> <!-- Open Rate -->
+        <col class="col-xs"> <!-- Click Rate -->
+        <col class="col-xs"> <!-- Reply Rate -->
+        <col class="col-med"><!-- Tag in ISC -->
+        <col class="col-xs"> <!-- SalesLoft -->
+        <col class="col-xs"> <!-- RainFocus -->
+      </colgroup>
       <thead><tr>${headers}</tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
