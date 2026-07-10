@@ -87,8 +87,10 @@
     background: #1a2b4a; color: #fff; text-align: left; padding: 10px 12px;
     font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
     white-space: nowrap; border-right: 1px solid rgba(255,255,255,.12);
-    position: sticky; top: 0; z-index: 1;
+    position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none;
   }
+  thead th.sort-asc::after  { content: " ▲"; font-size: 9px; opacity: 0.8; }
+  thead th.sort-desc::after { content: " ▼"; font-size: 9px; opacity: 0.8; }
   thead th:last-child { border-right: none; }
   tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
   tbody tr:last-child td { border-bottom: none; }
@@ -135,6 +137,10 @@
     <button class="btn-reset" id="btnReset">&#8635; Reset</button>
   </div>
   <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="section-card">
+    <h2>Initiatives by SA Rep</h2>
+    <div class="chart-wrap" id="chartRep"></div>
+  </div>
   <div class="section-card">
     <h2>Initiatives by Type &amp; Status</h2>
     <div class="chart-wrap" id="chartType"></div>
@@ -1398,12 +1404,15 @@ function renderKPIs() {
   const sumNum = col => data.reduce((a, r) => a + (toNum(r[col]) ?? 0), 0);
   const totalContacts = sumNum(C.contacts);
   const totalMeetings = sumNum(C.meetings);
+  const totalCalls    = sumNum(C.calls);
 
   const rateRows = data.filter(r => isNum(r[C.opened]) && isNum(r[C.bounced]) && isNum(r[C.replied]));
   const avgRate = col => rateRows.length
     ? (rateRows.reduce((a,r) => a + Number(r[col]), 0) / rateRows.length * 100).toFixed(1) + "%"
     : "—";
 
+  // Row 1: status KPIs (6 cards)
+  // Row 2: activity KPIs — Contacts Reached first, then Meetings, then Calls, then email rates
   const cards = [
     { label:"Total Initiatives", value: total,     sub:"",  color:"" },
     { label:"Completed",         value: completed, sub: total ? Math.round(completed/total*100)+"% of total" : "", color:"green" },
@@ -1411,11 +1420,13 @@ function renderKPIs() {
     { label:"Planned",           value: planned,   sub: total ? Math.round(planned/total*100)+"% of total" : "",   color:"purple" },
     { label:"Running",           value: running,   sub: total ? Math.round(running/total*100)+"% of total" : "",   color:"orange" },
     { label:"Stuck",             value: stuck,     sub: total ? Math.round(stuck/total*100)+"% of total" : "",     color:"red" },
-    { label:"Contacts Reached",  value: totalContacts.toLocaleString(), sub:"total",            color:"teal" },
-    { label:"Meetings Booked",   value: totalMeetings.toLocaleString(), sub:"total",            color:"" },
-    { label:"Avg Open Rate",     value: avgRate(C.opened),  sub:rateRows.length+" w/ data",    color:"accent" },
-    { label:"Avg Reply Rate",    value: avgRate(C.replied), sub:rateRows.length+" w/ data",    color:"accent" },
-    { label:"Avg Bounce Rate",   value: avgRate(C.bounced), sub:rateRows.length+" w/ data",    color:"accent" },
+    // ── row 2 ──
+    { label:"Contacts Reached",  value: totalContacts.toLocaleString(), sub:"total", color:"teal" },
+    { label:"Meetings Booked",   value: totalMeetings.toLocaleString(), sub:"total", color:"" },
+    { label:"Calls Made",        value: totalCalls.toLocaleString(),    sub:"total", color:"purple" },
+    { label:"Avg Open Rate",     value: avgRate(C.opened),  sub:rateRows.length+" w/ data", color:"accent" },
+    { label:"Avg Reply Rate",    value: avgRate(C.replied), sub:rateRows.length+" w/ data", color:"accent" },
+    { label:"Avg Bounce Rate",   value: avgRate(C.bounced), sub:rateRows.length+" w/ data", color:"accent" },
   ];
   document.getElementById("kpiGrid").innerHTML = cards.map(c => `
     <div class="kpi-card${c.color ? " "+c.color : ""}">
@@ -1432,6 +1443,41 @@ function statusBadge(s) {
   };
   const cls = map[s] || "other";
   return `<span class="badge badge-${cls}">${s||"—"}</span>`;
+}
+
+function renderChartRep() {
+  const data = filteredData();
+  const reps = [...new Set(data.map(r => r[C.rep]).filter(Boolean))].sort();
+  if (!reps.length) { document.getElementById("chartRep").innerHTML = `<p class="no-data">No data for current filters.</p>`; return; }
+  const statuses = ["Completed","Execution","Running","Planned","Stuck","Post Campaña"];
+  const colors   = { Completed:"#22c55e",Execution:"#3b82d4",Planned:"#9ca3af",Running:"#f59e0b",Stuck:"#ef4444","Post Campaña":"#7c5cd8" };
+  const activeStatuses = statuses.filter(s => data.some(r => r[C.status] === s));
+  // Calculate max label length for left padding
+  const maxLabelLen = Math.max(...reps.map(r => r.length));
+  const padL = Math.min(220, Math.max(130, maxLabelLen * 7));
+  const padR = 50, padT = 20, padB = 50;
+  const barH = 26, groupH = barH * activeStatuses.length + 14;
+  const maxVal = Math.max(1, ...reps.flatMap(rep => activeStatuses.map(s => data.filter(r => r[C.rep]===rep && r[C.status]===s).length)));
+  const W = 700, H = padT + reps.length * groupH + padB;
+  const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
+  let bars = "", labels = "";
+  reps.forEach((rep, ri) => {
+    const y0 = padT + ri * groupH;
+    labels += `<text x="${padL - 8}" y="${y0 + groupH/2 + 4}" text-anchor="end" font-size="11" fill="#1f2328">${rep}</text>`;
+    activeStatuses.forEach((s, si) => {
+      const count = data.filter(r => r[C.rep]===rep && r[C.status]===s).length;
+      const barY = y0 + si * barH + 4;
+      const barW = Math.max(0, scaleX(count) - padL);
+      bars += `<rect x="${padL}" y="${barY}" width="${barW}" height="${barH-4}" fill="${colors[s]||'#ccc'}" rx="2" opacity="0.9"/>`;
+      if (count > 0) bars += `<text x="${padL + barW + 4}" y="${barY + (barH-4)/2 + 4}" font-size="11" fill="#57606a">${count}</text>`;
+    });
+  });
+  const legend = activeStatuses.map((s,i) =>
+    `<rect x="${padL + (i%3)*160}" y="${H - 28 + Math.floor(i/3)*14}" width="12" height="12" fill="${colors[s]||'#ccc'}" rx="2"/>
+     <text x="${padL + (i%3)*160 + 16}" y="${H - 18 + Math.floor(i/3)*14}" font-size="11" fill="#57606a">${s}</text>`
+  ).join("");
+  document.getElementById("chartRep").innerHTML =
+    `<svg viewBox="0 0 ${W} ${H + 20}" style="width:100%;max-width:${W}px">${bars}${labels}${legend}</svg>`;
 }
 
 function renderChartType() {
@@ -1525,10 +1571,47 @@ function renderEngagement() {
     </table></div>`;
 }
 
+// ─── SORT STATE ───────────────────────────────────────────────────────────────
+let sortCol = -1, sortDir = 1; // dir: 1=asc, -1=desc
+
+// Column definitions for sorting: [header label, extractor fn]
+const TABLE_COLS = [
+  ["SA Rep",            r => r[C.rep] || ""],
+  ["Quarter",           r => r[C.quarter] || ""],
+  ["Month",             r => { const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; const i=mo.indexOf(r[C.month]); return i>=0?i:99; }],
+  ["Cluster",           r => r[C.cluster] || ""],
+  ["Country",           r => r[C.country] || ""],
+  ["BU",                r => r[C.bu] || ""],
+  ["Type",              r => r[C.type] || ""],
+  ["Status",            r => r[C.status] || ""],
+  ["Initiative Name",   r => r[C.name] || ""],
+  ["Contacts Engaged",  r => toNum(r[C.contacts]) ?? -1],
+  ["Meetings",          r => toNum(r[C.meetings]) ?? -1],
+  ["Calls",             r => toNum(r[C.calls]) ?? -1],
+  ["Open Rate",         r => toNum(r[C.opened]) ?? -1],
+  ["Click Rate",        r => toNum(r[C.clicked]) ?? -1],
+  ["Reply Rate",        r => toNum(r[C.replied]) ?? -1],
+  ["Tag in ISC",        r => r[C.oppStrategy] || ""],
+  ["SalesLoft",         r => r[C.slLink] ? 1 : 0],
+  ["RainFocus",         r => r[C.rainFocus] ? 1 : 0],
+];
+
 function renderTable() {
-  const data = filteredData();
+  let data = filteredData();
   document.getElementById("rowCount").textContent = `Showing ${data.length.toLocaleString()} of ${RAW.length.toLocaleString()} initiatives`;
   if (!data.length) { document.getElementById("initiativeTable").innerHTML = `<p class="no-data">No initiatives match the current filters.</p>`; return; }
+
+  // Apply sort
+  if (sortCol >= 0) {
+    const extract = TABLE_COLS[sortCol][1];
+    data = [...data].sort((a, b) => {
+      const av = extract(a), bv = extract(b);
+      if (av < bv) return -sortDir;
+      if (av > bv) return  sortDir;
+      return 0;
+    });
+  }
+
   const statusClass = s => ({
     "Completed":"row-completed","Execution":"row-execution","Planned":"row-planned",
     "Running":"row-running","Stuck":"row-stuck","Post Campaña":"row-postcampana"
@@ -1538,7 +1621,6 @@ function renderTable() {
     const rfLink = r[C.rainFocus] ? `<a href="${r[C.rainFocus]}" target="_blank" rel="noopener">RF ↗</a>` : "—";
     const tag = fmt(r[C.oppStrategy]);
     const name = fmt(r[C.name]);
-    const mkt  = fmt(r[C.mktName]);
     return `<tr class="${statusClass(r[C.status])}">
       <td style="white-space:nowrap">${fmt(r[C.rep])}</td>
       <td style="white-space:nowrap">${fmt(r[C.quarter])}</td>
@@ -1549,34 +1631,41 @@ function renderTable() {
       <td style="white-space:nowrap">${fmt(r[C.type])}</td>
       <td>${statusBadge(r[C.status])}</td>
       <td><span class="truncate" title="${name.replace(/"/g,"&quot;")}">${name}</span></td>
-      <td><span class="truncate" title="${mkt.replace(/"/g,"&quot;")}">${mkt}</span></td>
       <td class="num-cell">${isNum(r[C.contacts]) ? Number(r[C.contacts]).toLocaleString() : "—"}</td>
       <td class="num-cell">${isNum(r[C.meetings]) ? r[C.meetings] : "—"}</td>
       <td class="num-cell">${isNum(r[C.calls]) ? r[C.calls] : "—"}</td>
       <td class="num-cell">${pct(r[C.opened])}</td>
       <td class="num-cell">${pct(r[C.clicked])}</td>
       <td class="num-cell">${pct(r[C.replied])}</td>
-      <td class="num-cell">${isNum(r[C.oiActual]) ? r[C.oiActual] : "—"}</td>
       <td><span class="truncate" title="${tag}">${tag}</span></td>
       <td>${slLink}</td>
       <td>${rfLink}</td>
     </tr>`;
   }).join("");
+
+  const headers = TABLE_COLS.map(([label], i) => {
+    const cls = sortCol === i ? (sortDir === 1 ? " sort-asc" : " sort-desc") : "";
+    return `<th class="${cls}" data-col="${i}">${label}</th>`;
+  }).join("");
+
   document.getElementById("initiativeTable").innerHTML = `
-    <table>
-      <thead><tr>
-        <th>SA Rep</th><th>Quarter</th><th>Month</th><th>Cluster</th><th>Country</th><th>BU</th>
-        <th>Type</th><th>Status</th><th>Initiative Name</th><th>Marketing Name</th>
-        <th>Contacts</th><th>Meetings</th><th>Calls</th>
-        <th>Open Rate</th><th>Click Rate</th><th>Reply Rate</th><th># OI Actual</th>
-        <th>Tag in ISC</th><th>SalesLoft</th><th>RainFocus</th>
-      </tr></thead>
+    <table id="initTable">
+      <thead><tr>${headers}</tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+
+  // Wire up header click for sorting
+  document.querySelectorAll("#initTable thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const col = parseInt(th.dataset.col);
+      if (sortCol === col) { sortDir *= -1; } else { sortCol = col; sortDir = 1; }
+      renderTable();
+    });
+  });
 }
 
 function renderAll() {
-  renderKPIs(); renderChartType(); renderChartQuarter(); renderEngagement(); renderTable();
+  renderKPIs(); renderChartRep(); renderChartType(); renderChartQuarter(); renderEngagement(); renderTable();
 }
 
 const filterMap = {
