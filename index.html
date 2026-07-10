@@ -142,6 +142,10 @@
     <div class="chart-wrap" id="chartRep"></div>
   </div>
   <div class="section-card">
+    <h2>Total Initiatives by SA Rep</h2>
+    <div class="chart-wrap" id="chartRepTotal"></div>
+  </div>
+  <div class="section-card">
     <h2>Initiatives by Type &amp; Status</h2>
     <div class="chart-wrap" id="chartType"></div>
   </div>
@@ -1412,7 +1416,7 @@ function renderKPIs() {
     : "—";
 
   // Row 1: status KPIs (6 cards)
-  // Row 2: activity KPIs — Contacts Reached first, then Meetings, then Calls, then email rates
+  // Row 2: activity KPIs — Meetings Booked first (left), then Contacts Reached, then Calls, then email rates
   const cards = [
     { label:"Total Initiatives", value: total,     sub:"",  color:"" },
     { label:"Completed",         value: completed, sub: total ? Math.round(completed/total*100)+"% of total" : "", color:"green" },
@@ -1456,7 +1460,7 @@ function renderChartRep() {
   const maxLabelLen = Math.max(...reps.map(r => r.length));
   const padL = Math.min(220, Math.max(130, maxLabelLen * 7));
   const padR = 50, padT = 20, padB = 50;
-  const barH = 26, groupH = barH * activeStatuses.length + 14;
+  const barH = 20, groupH = barH * activeStatuses.length + 10;
   const maxVal = Math.max(1, ...reps.flatMap(rep => activeStatuses.map(s => data.filter(r => r[C.rep]===rep && r[C.status]===s).length)));
   const W = 700, H = padT + reps.length * groupH + padB;
   const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
@@ -1480,6 +1484,30 @@ function renderChartRep() {
     `<svg viewBox="0 0 ${W} ${H + 20}" style="width:100%;max-width:${W}px">${bars}${labels}${legend}</svg>`;
 }
 
+function renderChartRepTotal() {
+  const data = filteredData();
+  const reps = [...new Set(data.map(r => r[C.rep]).filter(Boolean))].sort();
+  if (!reps.length) { document.getElementById("chartRepTotal").innerHTML = `<p class="no-data">No data for current filters.</p>`; return; }
+  const maxLabelLen = Math.max(...reps.map(r => r.length));
+  const padL = Math.min(220, Math.max(130, maxLabelLen * 7));
+  const padR = 60, padT = 20, padB = 20;
+  const barH = 22;
+  const totals = reps.map(rep => data.filter(r => r[C.rep] === rep).length);
+  const maxVal = Math.max(1, ...totals);
+  const W = 700, H = padT + reps.length * (barH + 6) + padB;
+  const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
+  let bars = "", labels = "";
+  reps.forEach((rep, ri) => {
+    const barY = padT + ri * (barH + 6);
+    const barW = Math.max(0, scaleX(totals[ri]) - padL);
+    labels += `<text x="${padL - 8}" y="${barY + barH/2 + 4}" text-anchor="end" font-size="11" fill="#1f2328">${rep}</text>`;
+    bars += `<rect x="${padL}" y="${barY}" width="${barW}" height="${barH}" fill="#3b82d4" rx="2" opacity="0.85"/>`;
+    if (totals[ri] > 0) bars += `<text x="${padL + barW + 6}" y="${barY + barH/2 + 4}" font-size="11" fill="#57606a">${totals[ri]}</text>`;
+  });
+  document.getElementById("chartRepTotal").innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px">${bars}${labels}</svg>`;
+}
+
 function renderChartType() {
   const data = filteredData();
   const types    = [...new Set(data.map(r => r[C.type]).filter(Boolean))].sort();
@@ -1487,7 +1515,7 @@ function renderChartType() {
   const colors   = { Completed:"#22c55e",Execution:"#3b82d4",Planned:"#9ca3af",Running:"#f59e0b",Stuck:"#ef4444","Post Campaña":"#7c5cd8" };
   if (!types.length) { document.getElementById("chartType").innerHTML = `<p class="no-data">No data for current filters.</p>`; return; }
   const activeStatuses = statuses.filter(s => data.some(r => r[C.status] === s));
-  const barH = 26, groupH = barH * activeStatuses.length + 14, padL = 240, padR = 50, padT = 20, padB = 40;
+  const barH = 20, groupH = barH * activeStatuses.length + 10, padL = 240, padR = 50, padT = 20, padB = 40;
   const maxVal = Math.max(1, ...types.flatMap(t => activeStatuses.map(s => data.filter(r => r[C.type]===t && r[C.status]===s).length)));
   const W = 700, H = padT + types.length * groupH + padB;
   const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
@@ -1518,7 +1546,7 @@ function renderChartQuarter() {
   const colors   = { Completed:"#22c55e",Execution:"#3b82d4",Planned:"#9ca3af",Running:"#f59e0b",Stuck:"#ef4444","Post Campaña":"#7c5cd8" };
   if (!quarters.length) { document.getElementById("chartQuarter").innerHTML = `<p class="no-data">No data for current filters.</p>`; return; }
   const activeStatuses = statuses.filter(s => data.some(r => r[C.status] === s));
-  const barH = 26, groupH = barH * activeStatuses.length + 14, padL = 80, padR = 50, padT = 20, padB = 50;
+  const barH = 20, groupH = barH * activeStatuses.length + 10, padL = 80, padR = 50, padT = 20, padB = 50;
   const maxVal = Math.max(1, ...quarters.flatMap(q => activeStatuses.map(s => data.filter(r => r[C.quarter]===q && r[C.status]===s).length)));
   const W = 700, H = padT + quarters.length * groupH + padB;
   const scaleX = v => padL + (v / maxVal) * (W - padL - padR);
@@ -1585,7 +1613,7 @@ const TABLE_COLS = [
   ["Type",              r => r[C.type] || ""],
   ["Status",            r => r[C.status] || ""],
   ["Initiative Name",   r => r[C.name] || ""],
-  ["Contacts Engaged",  r => toNum(r[C.contacts]) ?? -1],
+  ["Contacts reached",  r => toNum(r[C.contacts]) ?? -1],
   ["Meetings",          r => toNum(r[C.meetings]) ?? -1],
   ["Calls",             r => toNum(r[C.calls]) ?? -1],
   ["Open Rate",         r => toNum(r[C.opened]) ?? -1],
@@ -1665,7 +1693,7 @@ function renderTable() {
 }
 
 function renderAll() {
-  renderKPIs(); renderChartRep(); renderChartType(); renderChartQuarter(); renderEngagement(); renderTable();
+  renderKPIs(); renderChartRep(); renderChartRepTotal(); renderChartType(); renderChartQuarter(); renderEngagement(); renderTable();
 }
 
 const filterMap = {
