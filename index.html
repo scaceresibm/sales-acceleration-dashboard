@@ -114,6 +114,8 @@
   a { color: #3b82d4; text-decoration: none; font-weight: 600; }
   a:hover { text-decoration: underline; }
   .no-data { color: #9ca3af; font-style: italic; padding: 24px 0; text-align: center; }
+  .chart-pair { display: flex; gap: 20px; align-items: flex-start; }
+  .chart-half { flex: 1; min-width: 0; }
   .eng-table { min-width: unset !important; }
   .num-cell { text-align: right; font-variant-numeric: tabular-nums; }
   .row-count { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
@@ -146,12 +148,16 @@
     <div class="chart-wrap" id="chartRepTotal"></div>
   </div>
   <div class="section-card">
-    <h2>Initiatives by Type &amp; Status</h2>
-    <div class="chart-wrap" id="chartType"></div>
-  </div>
-  <div class="section-card">
-    <h2>Initiatives by Quarter</h2>
-    <div class="chart-wrap" id="chartQuarter"></div>
+    <div class="chart-pair">
+      <div class="chart-half">
+        <h2>Initiatives by Type &amp; Status</h2>
+        <div class="chart-wrap" id="chartType"></div>
+      </div>
+      <div class="chart-half">
+        <h2>Initiatives by Quarter</h2>
+        <div class="chart-wrap" id="chartQuarter"></div>
+      </div>
+    </div>
   </div>
   <div class="section-card">
     <h2>Email Engagement by Initiative Type</h2>
